@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Net.Pkcs11Interop.Common;
 using Net.Pkcs11Interop.HighLevelAPI;
@@ -46,7 +46,7 @@ public sealed class TokenService : IDisposable
     {
         if (string.IsNullOrWhiteSpace(pin))
         {
-            throw new InvalidOperationException("PIN kh�ng ???c ?? tr?ng.");
+            throw new InvalidOperationException("PIN không được để trống.");
         }
 
         await _sync.WaitAsync(cancellationToken);
@@ -66,7 +66,7 @@ public sealed class TokenService : IDisposable
             _isLoggedIn = true;
             _lastLoginUtc = DateTime.UtcNow;
             PublishStatus(GetStatusInternal());
-            _logger.Info("USB Token login th�nh c�ng.");
+            _logger.Info("USB Token login thành công.");
             return true;
         }
         catch (Pkcs11Exception ex) when (ex.RV == CKR.CKR_USER_ALREADY_LOGGED_IN)
@@ -82,7 +82,7 @@ public sealed class TokenService : IDisposable
         }
         catch (Exception ex)
         {
-            _logger.Error("Login USB Token th?t b?i.", ex);
+            _logger.Error("Login USB Token thất bại.", ex);
             throw;
         }
         finally
@@ -146,7 +146,7 @@ public sealed class TokenService : IDisposable
         var selected = SelectCertificate(certificates, certId);
         if (selected is null)
         {
-            return new VerifyResult { Error = "Kh�ng t�m th?y ch?ng th? ?? verify." };
+            return new VerifyResult { Error = "Không tìm thấy chứng thư để verify." };
         }
 
         var payload = inputIsBase64 ? Convert.FromBase64String(data) : System.Text.Encoding.UTF8.GetBytes(data);
@@ -155,7 +155,7 @@ public sealed class TokenService : IDisposable
         using RSA? rsa = certificate.GetRSAPublicKey();
         if (rsa is null)
         {
-            return new VerifyResult { Error = "Certificate kh�ng h? tr? RSA public key." };
+            return new VerifyResult { Error = "Certificate không hỗ trợ RSA public key." };
         }
 
         var hash = ComputeHash(payload, hashAlgorithm);
@@ -191,7 +191,7 @@ public sealed class TokenService : IDisposable
             {
                 if (string.IsNullOrWhiteSpace(pin))
                 {
-                    return new SignResult { Error = "Token ch?a login." };
+                    return new SignResult { Error = "Token chưa login." };
                 }
 
                 _session!.Login(CKU.CKU_USER, pin);
@@ -203,19 +203,19 @@ public sealed class TokenService : IDisposable
             var selected = SelectCertificate(certificates, certId);
             if (selected is null)
             {
-                return new SignResult { Error = "Kh�ng t�m th?y certificate ph� h?p." };
+                return new SignResult { Error = "Không tìm thấy certificate phù hợp." };
             }
 
             var keyHandle = FindPrivateKeyHandle(selected.Id);
             if (keyHandle is null)
             {
-                return new SignResult { Error = "Kh�ng t�m th?y private key tr�n token." };
+                return new SignResult { Error = "Không tìm thấy private key trên token." };
             }
 
             var mechanism = _factories.MechanismFactory.Create(GetMechanism(hashAlgorithm));
             var signature = _session!.Sign(mechanism, keyHandle, hash);
             _lastLoginUtc = DateTime.UtcNow;
-            _logger.Info($"K� d? li?u th�nh c�ng v?i certificate {selected.Subject}.");
+            _logger.Info($"Ký dữ liệu thành công với certificate {selected.Subject}.");
 
             PublishStatus(GetStatusInternal());
             return new SignResult
@@ -229,11 +229,11 @@ public sealed class TokenService : IDisposable
         catch (Pkcs11Exception ex) when (ex.RV == CKR.CKR_USER_NOT_LOGGED_IN)
         {
             _isLoggedIn = false;
-            return new SignResult { Error = "Token ch?a login." };
+            return new SignResult { Error = "Token chưa login." };
         }
         catch (Exception ex)
         {
-            _logger.Error("K� d? li?u th?t b?i.", ex);
+            _logger.Error("Ký dữ liệu thất bại.", ex);
             return new SignResult { Error = ex.Message };
         }
         finally
@@ -328,7 +328,7 @@ public sealed class TokenService : IDisposable
             {
                 IsLibraryConfigured = false,
                 State = TokenHealthState.Error,
-                Message = "Ch?a c?u h�nh ???ng d?n PKCS#11 DLL."
+                Message = "Chưa cấu hình đường dẫn PKCS#11 DLL."
             };
         }
 
@@ -347,7 +347,7 @@ public sealed class TokenService : IDisposable
                     IsLibraryConfigured = true,
                     IsTokenPresent = false,
                     State = TokenHealthState.TokenMissing,
-                    Message = "Ch?a ph�t hi?n USB Token."
+                    Message = "Chưa phát hiện USB Token."
                 };
             }
 
@@ -364,7 +364,7 @@ public sealed class TokenService : IDisposable
                 TokenLabel = tokenInfo.Label?.Trim(),
                 SerialNumber = tokenInfo.SerialNumber?.Trim(),
                 State = _isLoggedIn ? TokenHealthState.Ready : TokenHealthState.LoginRequired,
-                Message = _isLoggedIn ? "Token s?n s�ng." : "Token ?� c?m, c?n login."
+                Message = _isLoggedIn ? "Token sẵn sàng." : "Token đã cắm, cần login."
             };
         }
         catch (Exception ex)
@@ -384,7 +384,7 @@ public sealed class TokenService : IDisposable
         var libraryPath = _configurationService.Current.TokenLibraryPath;
         if (string.IsNullOrWhiteSpace(libraryPath) || !File.Exists(libraryPath))
         {
-            throw new FileNotFoundException("Kh�ng t�m th?y PKCS#11 library.", libraryPath);
+            throw new FileNotFoundException("Không tìm thấy PKCS#11 library.", libraryPath);
         }
 
         if (_library is not null)
@@ -399,7 +399,7 @@ public sealed class TokenService : IDisposable
     {
         if (_library is null)
         {
-            throw new InvalidOperationException("PKCS#11 library ch?a ???c load.");
+            throw new InvalidOperationException("PKCS#11 library chưa được load.");
         }
 
         if (_activeSlot is not null)
@@ -420,7 +420,7 @@ public sealed class TokenService : IDisposable
         _activeSlot = _library.GetSlotList(SlotsType.WithTokenPresent).FirstOrDefault();
         if (_activeSlot is null)
         {
-            throw new InvalidOperationException("Kh�ng t�m th?y USB Token n�o ?ang c?m.");
+            throw new InvalidOperationException("Không tìm thấy USB Token nào đang cắm.");
         }
     }
 
@@ -445,7 +445,7 @@ public sealed class TokenService : IDisposable
         try
         {
             _session?.Logout();
-            _logger.Info("Session token ?� t? logout do timeout.");
+            _logger.Info("Session token đã tự logout do timeout.");
         }
         catch (Pkcs11Exception)
         {

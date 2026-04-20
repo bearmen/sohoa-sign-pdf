@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using sohoa_sign_pdf.Configuration;
 using sohoa_sign_pdf.Models;
 using sohoa_sign_pdf.Services;
@@ -73,7 +73,7 @@ namespace sohoa_sign_pdf
             }
 
             Hide();
-            notifyIcon1.ShowBalloonTip(2000, "sohoa-sign-pdf", "?ng d?ng v?n ch?y ? system tray.", ToolTipIcon.Info);
+            notifyIcon1.ShowBalloonTip(2000, "sohoa-sign-pdf", "Ứng dụng vẫn chạy ở system tray.", ToolTipIcon.Info);
         }
 
         private async Task StartApiIfNeededAsync()
@@ -86,7 +86,7 @@ namespace sohoa_sign_pdf
             catch (Exception ex)
             {
                 lblApiStatus.Text = "API: Error";
-                _logger.Error("Kh�ng th? kh?i ??ng local API.", ex);
+                _logger.Error("Không thể khởi động local API.", ex);
             }
         }
 
@@ -103,7 +103,7 @@ namespace sohoa_sign_pdf
             }
             catch (Exception ex)
             {
-                _logger.Error("Refresh token status th?t b?i.", ex);
+                _logger.Error("Làm mới trạng thái token thất bại.", ex);
             }
         }
 
@@ -125,7 +125,7 @@ namespace sohoa_sign_pdf
             }
             catch (Exception ex)
             {
-                _logger.Warning($"Kh�ng th? t?i certificates: {ex.Message}");
+                _logger.Warning($"Không thể tải certificates: {ex.Message}");
             }
         }
 
@@ -154,7 +154,7 @@ namespace sohoa_sign_pdf
         private void ApplyTokenStatus(TokenStatusInfo status)
         {
             lblTokenStatus.Text = $"Token: {status.Message}";
-            lblLoginStatus.Text = $"Login: {(status.IsLoggedIn ? "?� login" : "Ch?a login")}";
+            lblLoginStatus.Text = $"Login: {(status.IsLoggedIn ? "Đã login" : "Chưa login")}";
             lblTokenInfo.Text = $"Label: {status.TokenLabel ?? "N/A"} | Serial: {status.SerialNumber ?? "N/A"}";
 
             notifyIcon1.Text = $"sohoa-sign-pdf - {status.Message}";
@@ -194,7 +194,7 @@ namespace sohoa_sign_pdf
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Login th?t b?i", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(ex.Message, "Login thất bại", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -213,7 +213,7 @@ namespace sohoa_sign_pdf
             var result = await _signingQueueService.SignDataAsync(request);
             if (!result.Success)
             {
-                MessageBox.Show(result.Error, "K� th?t b?i", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(result.Error, "Ký thất bại", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -270,7 +270,7 @@ namespace sohoa_sign_pdf
             using var dialog = new OpenFileDialog
             {
                 Filter = "DLL files (*.dll)|*.dll|All files (*.*)|*.*",
-                Title = "Ch?n PKCS#11 DLL"
+                Title = "Chọn PKCS#11 DLL"
             };
 
             if (dialog.ShowDialog() != DialogResult.OK)
@@ -285,7 +285,7 @@ namespace sohoa_sign_pdf
         {
             if (!int.TryParse(txtApiPort.Text.Trim(), out var port) || port is < 1024 or > 65535)
             {
-                MessageBox.Show("Port kh�ng h?p l?.", "Config", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Port không hợp lệ.", "Config", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -298,7 +298,7 @@ namespace sohoa_sign_pdf
                 .Split([Environment.NewLine], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
             _configurationService.Save(config);
-            _logger.Info("?� l?u c?u h�nh. H�y restart API ?? �p d?ng port m?i.");
+            _logger.Info("Đã lưu cấu hình. Hãy restart API để áp dụng port mới.");
         }
 
         private void btnOpenLogs_Click(object sender, EventArgs e)

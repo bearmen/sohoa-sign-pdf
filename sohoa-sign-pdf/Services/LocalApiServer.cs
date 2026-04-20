@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -57,7 +57,7 @@ public sealed class LocalApiServer : IAsyncDisposable
             if (!IPAddress.IsLoopback(context.Connection.RemoteIpAddress ?? IPAddress.None))
             {
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await context.Response.WriteAsJsonAsync(new { error = "Ch? cho ph�p g?i t? localhost." }, cancellationToken);
+                await context.Response.WriteAsJsonAsync(new { error = "Chỉ cho phép gửi từ localhost." }, cancellationToken);
                 return;
             }
 
@@ -70,14 +70,14 @@ public sealed class LocalApiServer : IAsyncDisposable
             if (!IsOriginAllowed(context.Request.Headers.Origin))
             {
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await context.Response.WriteAsJsonAsync(new { error = "Origin kh�ng h?p l?." }, cancellationToken);
+                await context.Response.WriteAsJsonAsync(new { error = "Origin không hợp lệ." }, cancellationToken);
                 return;
             }
 
             if (!IsApiKeyValid(context.Request.Headers["X-Api-Key"]))
             {
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                await context.Response.WriteAsJsonAsync(new { error = "Thi?u ho?c sai API key." }, cancellationToken);
+                await context.Response.WriteAsJsonAsync(new { error = "Thiếu hoặc sai API key." }, cancellationToken);
                 return;
             }
 
@@ -124,12 +124,12 @@ public sealed class LocalApiServer : IAsyncDisposable
         {
             if (string.IsNullOrWhiteSpace(request.Data))
             {
-                return Results.BadRequest(new { error = "Thi?u data." });
+                return Results.BadRequest(new { error = "Thiếu data." });
             }
 
             if (!IsSupportedType(request.Type))
             {
-                return Results.BadRequest(new { error = "Ch? h? tr? raw/json/base64 ? b?n MVP." });
+                return Results.BadRequest(new { error = "Chưa hỗ trợ raw/json/base64 bên MVP." });
             }
 
             var normalized = NormalizeRequest(request);
@@ -141,7 +141,7 @@ public sealed class LocalApiServer : IAsyncDisposable
         {
             if (string.IsNullOrWhiteSpace(request.HashBase64))
             {
-                return Results.BadRequest(new { error = "Thi?u hashBase64." });
+                return Results.BadRequest(new { error = "Thiếu hashBase64." });
             }
 
             var result = await _signingQueueService.SignHashAsync(request, ct);
@@ -163,7 +163,7 @@ public sealed class LocalApiServer : IAsyncDisposable
         {
             var publicKey = await _tokenService.GetPublicKeyAsync(certId, ct);
             return publicKey is null
-                ? Results.NotFound(new { error = "Kh�ng t�m th?y public key." })
+                ? Results.NotFound(new { error = "Không tìm thấy public key." })
                 : Results.Ok(new { publicKeyBase64 = Convert.ToBase64String(publicKey) });
         });
 
@@ -175,7 +175,7 @@ public sealed class LocalApiServer : IAsyncDisposable
 
         await app.StartAsync(cancellationToken);
         _app = app;
-        _logger.Info($"Local API ?� ch?y t?i http://127.0.0.1:{config.ApiPort}");
+        _logger.Info($"Local API đã chạy tại http://127.0.0.1:{config.ApiPort}");
     }
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
@@ -188,7 +188,7 @@ public sealed class LocalApiServer : IAsyncDisposable
         await _app.StopAsync(cancellationToken);
         await _app.DisposeAsync();
         _app = null;
-        _logger.Warning("Local API ?� d?ng.");
+        _logger.Warning("Local API đã dừng.");
     }
 
     private bool IsOriginAllowed(string? origin)
