@@ -33,8 +33,9 @@ namespace sohoa_sign_pdf
             var signingQueueService = new SigningQueueService(tokenService);
             var autoStartService = new AutoStartService("sohoa-sign-pdf");
             var localApiServer = new LocalApiServer(configurationService, tokenService, signingQueueService, logger);
+            var dllDiscoveryService = new Pkcs11DllDiscoveryService();
 
-            Application.Run(new Form1(configurationService, logger, tokenService, signingQueueService, localApiServer, autoStartService));
+            Application.Run(new Form1(configurationService, logger, tokenService, signingQueueService, localApiServer, autoStartService, dllDiscoveryService));
 
             tokenService.Dispose();
             _singleInstanceMutex.Dispose();

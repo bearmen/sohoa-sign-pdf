@@ -129,11 +129,28 @@ public sealed class LocalApiServer : IAsyncDisposable
 
             if (!IsSupportedType(request.Type))
             {
-                return Results.BadRequest(new { error = "Chưa hỗ trợ raw/json/base64 bên MVP." });
+                return Results.BadRequest(new { error = "Chỉ hỗ trợ raw/json/base64 ở bản MVP." });
             }
 
             var normalized = NormalizeRequest(request);
             var result = await _signingQueueService.SignDataAsync(normalized, ct);
+            return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        });
+
+        app.MapPost("/sign-cms", async (SignRequest request, CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Data))
+            {
+                return Results.BadRequest(new { error = "Thiếu data." });
+            }
+
+            if (!IsSupportedType(request.Type))
+            {
+                return Results.BadRequest(new { error = "Detached CMS chỉ hỗ trợ raw/json/base64." });
+            }
+
+            var normalized = NormalizeRequest(request);
+            var result = await _signingQueueService.SignCmsDataAsync(normalized, ct);
             return result.Success ? Results.Ok(result) : Results.BadRequest(result);
         });
 
@@ -145,6 +162,17 @@ public sealed class LocalApiServer : IAsyncDisposable
             }
 
             var result = await _signingQueueService.SignHashAsync(request, ct);
+            return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        });
+
+        app.MapPost("/sign-cms-hash", async (SignHashRequest request, CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.HashBase64))
+            {
+                return Results.BadRequest(new { error = "Thiếu hashBase64." });
+            }
+
+            var result = await _signingQueueService.SignCmsHashAsync(request, ct);
             return result.Success ? Results.Ok(result) : Results.BadRequest(result);
         });
 

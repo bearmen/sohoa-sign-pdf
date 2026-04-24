@@ -3,6 +3,9 @@ using System.Security.Cryptography.X509Certificates;
 using Net.Pkcs11Interop.Common;
 using Net.Pkcs11Interop.HighLevelAPI;
 using Net.Pkcs11Interop.HighLevelAPI.Factories;
+using Org.BouncyCastle.Asn1;
+using Org.BouncyCastle.Asn1.Pkcs;
+using Org.BouncyCastle.Asn1.X509;
 using sohoa_sign_pdf.Configuration;
 using sohoa_sign_pdf.Models;
 
@@ -131,13 +134,26 @@ public sealed class TokenService : IDisposable
     {
         var bytes = inputIsBase64 ? Convert.FromBase64String(data) : System.Text.Encoding.UTF8.GetBytes(data);
         var hash = ComputeHash(bytes, hashAlgorithm);
-        return await SignHashInternalAsync(hash, certId, pin, hashAlgorithm, cancellationToken);
+        return await SignHashInternalAsync(hash, certId, pin, hashAlgorithm, cancellationToken, "raw");
     }
 
     public async Task<SignResult> SignHashAsync(string hashBase64, string? certId, string? pin, string hashAlgorithm, CancellationToken cancellationToken = default)
     {
         var hash = Convert.FromBase64String(hashBase64);
-        return await SignHashInternalAsync(hash, certId, pin, hashAlgorithm, cancellationToken);
+        return await SignHashInternalAsync(hash, certId, pin, hashAlgorithm, cancellationToken, "raw");
+    }
+
+    public async Task<SignResult> SignCmsDataAsync(string data, string? certId, string? pin, string hashAlgorithm, bool inputIsBase64, CancellationToken cancellationToken = default)
+    {
+        var bytes = inputIsBase64 ? Convert.FromBase64String(data) : System.Text.Encoding.UTF8.GetBytes(data);
+        var hash = ComputeHash(bytes, hashAlgorithm);
+        return await SignCmsInternalAsync(hash, certId, pin, hashAlgorithm, cancellationToken);
+    }
+
+    public async Task<SignResult> SignCmsHashAsync(string hashBase64, string? certId, string? pin, string hashAlgorithm, CancellationToken cancellationToken = default)
+    {
+        var hash = Convert.FromBase64String(hashBase64);
+        return await SignCmsInternalAsync(hash, certId, pin, hashAlgorithm, cancellationToken);
     }
 
     public async Task<VerifyResult> VerifyAsync(string data, string signatureBase64, string? certId, bool inputIsBase64, string hashAlgorithm, CancellationToken cancellationToken = default)
@@ -177,45 +193,15 @@ public sealed class TokenService : IDisposable
         return rsa?.ExportSubjectPublicKeyInfo();
     }
 
-    private async Task<SignResult> SignHashInternalAsync(byte[] hash, string? certId, string? pin, string hashAlgorithm, CancellationToken cancellationToken)
+    private async Task<SignResult> SignHashInternalAsync(byte[] hash, string? certId, string? pin, string hashAlgorithm, CancellationToken cancellationToken, string signatureFormat)
     {
         await _sync.WaitAsync(cancellationToken);
         try
         {
-            EnsureLibraryLoaded();
-            EnsureActiveSlot();
-            EnsureSession();
-            EnforceSessionTimeout();
-
-            if (!_isLoggedIn)
-            {
-                if (string.IsNullOrWhiteSpace(pin))
-                {
-                    return new SignResult { Error = "Token chưa login." };
-                }
-
-                _session!.Login(CKU.CKU_USER, pin);
-                _isLoggedIn = true;
-                _lastLoginUtc = DateTime.UtcNow;
-            }
-
-            var certificates = GetCertificatesInternal();
-            var selected = SelectCertificate(certificates, certId);
-            if (selected is null)
-            {
-                return new SignResult { Error = "Không tìm thấy certificate phù hợp." };
-            }
-
-            var keyHandle = FindPrivateKeyHandle(selected.Id);
-            if (keyHandle is null)
-            {
-                return new SignResult { Error = "Không tìm thấy private key trên token." };
-            }
-
-            var mechanism = _factories.MechanismFactory.Create(GetMechanism(hashAlgorithm));
-            var signature = _session!.Sign(mechanism, keyHandle, hash);
+            var context = EnsureSigningContext(certId, pin);
+            var signature = SignDigestWithPrivateKey(context.KeyHandle, hash, hashAlgorithm);
             _lastLoginUtc = DateTime.UtcNow;
-            _logger.Info($"Ký dữ liệu thành công với certificate {selected.Subject}.");
+            _logger.Info($"Ký dữ liệu thành công với certificate {context.Certificate.Subject}.");
 
             PublishStatus(GetStatusInternal());
             return new SignResult
@@ -223,23 +209,115 @@ public sealed class TokenService : IDisposable
                 Success = true,
                 SignatureBase64 = Convert.ToBase64String(signature),
                 Algorithm = hashAlgorithm,
-                CertificateId = selected.Id
+                CertificateId = context.Certificate.Id,
+                SignatureFormat = signatureFormat
             };
         }
         catch (Pkcs11Exception ex) when (ex.RV == CKR.CKR_USER_NOT_LOGGED_IN)
         {
             _isLoggedIn = false;
-            return new SignResult { Error = "Token chưa login." };
+            return new SignResult { Error = "Token chưa login.", SignatureFormat = signatureFormat };
         }
         catch (Exception ex)
         {
             _logger.Error("Ký dữ liệu thất bại.", ex);
-            return new SignResult { Error = ex.Message };
+            return new SignResult { Error = ex.Message, SignatureFormat = signatureFormat };
         }
         finally
         {
             _sync.Release();
         }
+    }
+
+    private async Task<SignResult> SignCmsInternalAsync(byte[] contentHash, string? certId, string? pin, string hashAlgorithm, CancellationToken cancellationToken)
+    {
+        await _sync.WaitAsync(cancellationToken);
+        try
+        {
+            var context = EnsureSigningContext(certId, pin);
+            var certificate = context.Certificate.ToCertificate();
+            var cms = CmsDetachedSignatureBuilder.BuildDetached(
+                contentHash,
+                certificate,
+                (digest, algorithm) => SignDigestWithPrivateKey(context.KeyHandle, digest, NormalizeHashAlgorithm(algorithm)),
+                hashAlgorithm);
+
+            _lastLoginUtc = DateTime.UtcNow;
+            _logger.Info($"Tạo detached CMS thành công với certificate {context.Certificate.Subject}.");
+            PublishStatus(GetStatusInternal());
+
+            return new SignResult
+            {
+                Success = true,
+                SignatureBase64 = Convert.ToBase64String(cms),
+                Algorithm = hashAlgorithm,
+                CertificateId = context.Certificate.Id,
+                SignatureFormat = "cms-detached"
+            };
+        }
+        catch (Pkcs11Exception ex) when (ex.RV == CKR.CKR_USER_NOT_LOGGED_IN)
+        {
+            _isLoggedIn = false;
+            return new SignResult { Error = "Token chưa login.", SignatureFormat = "cms-detached" };
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Tạo detached CMS thất bại.", ex);
+            return new SignResult { Error = ex.Message, SignatureFormat = "cms-detached" };
+        }
+        finally
+        {
+            _sync.Release();
+        }
+    }
+
+    private (CertificateInfo Certificate, IObjectHandle KeyHandle) EnsureSigningContext(string? certId, string? pin)
+    {
+        EnsureLibraryLoaded();
+        EnsureActiveSlot();
+        EnsureSession();
+        EnforceSessionTimeout();
+
+        if (!_isLoggedIn)
+        {
+            if (string.IsNullOrWhiteSpace(pin))
+            {
+                throw new InvalidOperationException("Token chưa login.");
+            }
+
+            _session!.Login(CKU.CKU_USER, pin);
+            _isLoggedIn = true;
+            _lastLoginUtc = DateTime.UtcNow;
+        }
+
+        var certificates = GetCertificatesInternal();
+        var selected = SelectCertificate(certificates, certId);
+        if (selected is null)
+        {
+            throw new InvalidOperationException("Không tìm thấy certificate phù hợp.");
+        }
+
+        var keyHandle = FindPrivateKeyHandle(selected.Id);
+        if (keyHandle is null)
+        {
+            throw new InvalidOperationException("Không tìm thấy private key trên token.");
+        }
+
+        return (selected, keyHandle);
+    }
+
+    private byte[] SignDigestWithPrivateKey(IObjectHandle keyHandle, byte[] hash, string hashAlgorithm)
+    {
+        var mechanism = _factories.MechanismFactory.Create(CKM.CKM_RSA_PKCS);
+        var digestInfo = BuildDigestInfo(hash, hashAlgorithm);
+        return _session!.Sign(mechanism, keyHandle, digestInfo);
+    }
+
+    private static byte[] BuildDigestInfo(byte[] hash, string hashAlgorithm)
+    {
+        var algorithmIdentifier = new AlgorithmIdentifier(new DerObjectIdentifier(GetDigestOid(hashAlgorithm)), DerNull.Instance);
+        var digestInfo = new DigestInfo(algorithmIdentifier, hash);
+        return digestInfo.GetDerEncoded();
     }
 
     private List<CertificateInfo> GetCertificatesInternal()
@@ -462,16 +540,26 @@ public sealed class TokenService : IDisposable
         StatusChanged?.Invoke(status);
     }
 
-    private static CKM GetMechanism(string hashAlgorithm) => hashAlgorithm.ToUpperInvariant() switch
-    {
-        "SHA1" or "SHA-1" => CKM.CKM_SHA1_RSA_PKCS,
-        _ => CKM.CKM_SHA256_RSA_PKCS
-    };
-
     private static HashAlgorithmName ResolveHashName(string hashAlgorithm) => hashAlgorithm.ToUpperInvariant() switch
     {
         "SHA1" or "SHA-1" => HashAlgorithmName.SHA1,
         _ => HashAlgorithmName.SHA256
+    };
+
+    private static string NormalizeHashAlgorithm(HashAlgorithmName hashAlgorithmName)
+    {
+        if (hashAlgorithmName == HashAlgorithmName.SHA1)
+        {
+            return "SHA1";
+        }
+
+        return "SHA256";
+    }
+
+    private static string GetDigestOid(string hashAlgorithm) => hashAlgorithm.ToUpperInvariant() switch
+    {
+        "SHA1" or "SHA-1" => "1.3.14.3.2.26",
+        _ => "2.16.840.1.101.3.4.2.1"
     };
 
     private static byte[] ComputeHash(byte[] data, string hashAlgorithm) => hashAlgorithm.ToUpperInvariant() switch

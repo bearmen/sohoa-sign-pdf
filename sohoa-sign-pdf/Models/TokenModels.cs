@@ -45,5 +45,6 @@ public sealed class SignResult
     public string? SignatureBase64 { get; set; }
     public string? Algorithm { get; set; }
     public string? CertificateId { get; set; }
+    public string? SignatureFormat { get; set; }
     public string? Error { get; set; }
 }
