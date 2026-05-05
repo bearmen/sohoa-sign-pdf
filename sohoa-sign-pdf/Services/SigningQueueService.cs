@@ -37,4 +37,30 @@ public sealed class SigningQueueService
             _semaphore.Release();
         }
     }
+
+    public async Task<SignResult> SignCmsDataAsync(SignRequest request, CancellationToken cancellationToken = default)
+    {
+        await _semaphore.WaitAsync(cancellationToken);
+        try
+        {
+            return await _tokenService.SignCmsDataAsync(request.Data, request.CertId, request.Pin, request.HashAlgorithm, request.DataIsBase64, cancellationToken);
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task<SignResult> SignCmsHashAsync(SignHashRequest request, CancellationToken cancellationToken = default)
+    {
+        await _semaphore.WaitAsync(cancellationToken);
+        try
+        {
+            return await _tokenService.SignCmsHashAsync(request.HashBase64, request.CertId, request.Pin, request.HashAlgorithm, cancellationToken);
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
 }

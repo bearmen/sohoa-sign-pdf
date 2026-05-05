@@ -1,4 +1,4 @@
-using System.Security.Cryptography.X509Certificates;
+﻿using System.Security.Cryptography.X509Certificates;
 
 namespace sohoa_sign_pdf.Models;
 
@@ -31,6 +31,9 @@ public sealed class CertificateInfo
     public string Issuer { get; set; } = string.Empty;
     public string SerialNumber { get; set; } = string.Empty;
     public string Thumbprint { get; set; } = string.Empty;
+    public string? CommonName { get; set; }
+    public string? Organization { get; set; }
+    public string? Email { get; set; }
     public DateTime NotBefore { get; set; }
     public DateTime NotAfter { get; set; }
     public bool IsExpired => DateTime.UtcNow > NotAfter.ToUniversalTime();
@@ -45,5 +48,6 @@ public sealed class SignResult
     public string? SignatureBase64 { get; set; }
     public string? Algorithm { get; set; }
     public string? CertificateId { get; set; }
+    public string? SignatureFormat { get; set; }
     public string? Error { get; set; }
 }

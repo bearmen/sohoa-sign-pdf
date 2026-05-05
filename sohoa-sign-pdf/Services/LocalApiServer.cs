@@ -1,5 +1,6 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Sockets;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -44,7 +45,8 @@ public sealed class LocalApiServer : IAsyncDisposable
             EnvironmentName = "Production"
         });
 
-        builder.WebHost.UseUrls($"http://127.0.0.1:{config.ApiPort}");
+        var listenHost = config.AllowLanClients ? "0.0.0.0" : "127.0.0.1";
+        builder.WebHost.UseUrls($"http://{listenHost}:{config.ApiPort}");
         builder.Services.ConfigureHttpJsonOptions(options =>
         {
             options.SerializerOptions.WriteIndented = true;
@@ -54,14 +56,15 @@ public sealed class LocalApiServer : IAsyncDisposable
 
         app.Use(async (context, next) =>
         {
-            if (!IPAddress.IsLoopback(context.Connection.RemoteIpAddress ?? IPAddress.None))
+            var remoteIp = context.Connection.RemoteIpAddress ?? IPAddress.None;
+            if (!IsClientAllowed(remoteIp, config.AllowLanClients))
             {
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await context.Response.WriteAsJsonAsync(new { error = "Ch? cho ph�p g?i t? localhost." }, cancellationToken);
+                await context.Response.WriteAsJsonAsync(new { error = "Không được phép truy cập API từ địa chỉ hiện tại." }, cancellationToken);
                 return;
             }
 
-            if (context.Request.Path.StartsWithSegments("/health"))
+            if (context.Request.Path == "/" || context.Request.Path.StartsWithSegments("/health"))
             {
                 await next();
                 return;
@@ -70,14 +73,14 @@ public sealed class LocalApiServer : IAsyncDisposable
             if (!IsOriginAllowed(context.Request.Headers.Origin))
             {
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await context.Response.WriteAsJsonAsync(new { error = "Origin kh�ng h?p l?." }, cancellationToken);
+                await context.Response.WriteAsJsonAsync(new { error = "Origin không hợp lệ." }, cancellationToken);
                 return;
             }
 
             if (!IsApiKeyValid(context.Request.Headers["X-Api-Key"]))
             {
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                await context.Response.WriteAsJsonAsync(new { error = "Thi?u ho?c sai API key." }, cancellationToken);
+                await context.Response.WriteAsJsonAsync(new { error = "Thiếu hoặc sai API key." }, cancellationToken);
                 return;
             }
 
@@ -90,6 +93,14 @@ public sealed class LocalApiServer : IAsyncDisposable
 
             await next();
         });
+
+        app.MapGet("/", () => Results.Ok(new
+        {
+            status = "ok",
+            message = "Local API is running",
+            apiPort = config.ApiPort,
+            version = Application.ProductVersion
+        }));
 
         app.MapGet("/health", () => Results.Ok(new
         {
@@ -112,6 +123,9 @@ public sealed class LocalApiServer : IAsyncDisposable
                 x.Id,
                 x.Label,
                 x.Subject,
+                x.CommonName,
+                x.Organization,
+                x.Email,
                 x.SerialNumber,
                 x.Thumbprint,
                 x.NotBefore,
@@ -124,12 +138,12 @@ public sealed class LocalApiServer : IAsyncDisposable
         {
             if (string.IsNullOrWhiteSpace(request.Data))
             {
-                return Results.BadRequest(new { error = "Thi?u data." });
+                return Results.BadRequest(new { error = "Thiếu data." });
             }
 
             if (!IsSupportedType(request.Type))
             {
-                return Results.BadRequest(new { error = "Ch? h? tr? raw/json/base64 ? b?n MVP." });
+                return Results.BadRequest(new { error = "Chỉ hỗ trợ raw/json/base64 ở bản MVP." });
             }
 
             var normalized = NormalizeRequest(request);
@@ -137,14 +151,42 @@ public sealed class LocalApiServer : IAsyncDisposable
             return result.Success ? Results.Ok(result) : Results.BadRequest(result);
         });
 
+        app.MapPost("/sign-cms", async (SignRequest request, CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Data))
+            {
+                return Results.BadRequest(new { error = "Thiếu data." });
+            }
+
+            if (!IsSupportedType(request.Type))
+            {
+                return Results.BadRequest(new { error = "Detached CMS chỉ hỗ trợ raw/json/base64." });
+            }
+
+            var normalized = NormalizeRequest(request);
+            var result = await _signingQueueService.SignCmsDataAsync(normalized, ct);
+            return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        });
+
         app.MapPost("/sign-hash", async (SignHashRequest request, CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.HashBase64))
             {
-                return Results.BadRequest(new { error = "Thi?u hashBase64." });
+                return Results.BadRequest(new { error = "Thiếu hashBase64." });
             }
 
             var result = await _signingQueueService.SignHashAsync(request, ct);
+            return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        });
+
+        app.MapPost("/sign-cms-hash", async (SignHashRequest request, CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.HashBase64))
+            {
+                return Results.BadRequest(new { error = "Thiếu hashBase64." });
+            }
+
+            var result = await _signingQueueService.SignCmsHashAsync(request, ct);
             return result.Success ? Results.Ok(result) : Results.BadRequest(result);
         });
 
@@ -163,7 +205,7 @@ public sealed class LocalApiServer : IAsyncDisposable
         {
             var publicKey = await _tokenService.GetPublicKeyAsync(certId, ct);
             return publicKey is null
-                ? Results.NotFound(new { error = "Kh�ng t�m th?y public key." })
+                ? Results.NotFound(new { error = "Không tìm thấy public key." })
                 : Results.Ok(new { publicKeyBase64 = Convert.ToBase64String(publicKey) });
         });
 
@@ -175,7 +217,8 @@ public sealed class LocalApiServer : IAsyncDisposable
 
         await app.StartAsync(cancellationToken);
         _app = app;
-        _logger.Info($"Local API ?� ch?y t?i http://127.0.0.1:{config.ApiPort}");
+        _logger.Info($"Local API config: AllowLanClients={config.AllowLanClients}, Port={config.ApiPort}, ConfigPath={_configurationService.ConfigPath}");
+        _logger.Info($"Local API đã chạy tại http://{listenHost}:{config.ApiPort}" + (config.AllowLanClients ? " (cho phép LAN)." : " (chỉ localhost)."));
     }
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
@@ -188,7 +231,7 @@ public sealed class LocalApiServer : IAsyncDisposable
         await _app.StopAsync(cancellationToken);
         await _app.DisposeAsync();
         _app = null;
-        _logger.Warning("Local API ?� d?ng.");
+        _logger.Warning("Local API đã dừng.");
     }
 
     private bool IsOriginAllowed(string? origin)
@@ -242,5 +285,38 @@ public sealed class LocalApiServer : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await StopAsync();
+    }
+
+    private static bool IsClientAllowed(IPAddress remoteIp, bool allowLanClients)
+    {
+        if (IPAddress.IsLoopback(remoteIp))
+        {
+            return true;
+        }
+
+        if (!allowLanClients)
+        {
+            return false;
+        }
+
+        if (remoteIp.IsIPv4MappedToIPv6)
+        {
+            remoteIp = remoteIp.MapToIPv4();
+        }
+
+        if (remoteIp.AddressFamily == AddressFamily.InterNetwork)
+        {
+            var bytes = remoteIp.GetAddressBytes();
+            return bytes[0] == 10
+                || (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31)
+                || (bytes[0] == 192 && bytes[1] == 168);
+        }
+
+        if (remoteIp.AddressFamily == AddressFamily.InterNetworkV6)
+        {
+            return remoteIp.IsIPv6LinkLocal || remoteIp.IsIPv6SiteLocal || remoteIp.IsIPv6UniqueLocal;
+        }
+
+        return false;
     }
 }

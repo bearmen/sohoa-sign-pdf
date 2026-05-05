@@ -23,11 +23,15 @@
         private TextBox txtLogs;
         private TextBox txtApiPort;
         private TextBox txtAllowedOrigins;
-        private TextBox txtTokenDllPath;
+        private ComboBox txtTokenDllPath;
         private TextBox txtApiKey;
         private Button btnSaveConfig;
         private Button btnBrowseDll;
+        private Button btnAutoDetectDll;
+        private Button btnGenerateApiKey;
         private Button btnOpenLogs;
+        private CheckBox chkOnlyLoadableDll;
+        private CheckBox chkAllowLanClients;
         private TextBox txtTestPayload;
         private Button btnSignTest;
         private TextBox txtSignatureResult;
@@ -45,6 +49,8 @@
         private Label lblApiKeyTitle;
         private Label lblPayloadTitle;
         private Label lblSignatureTitle;
+        private GroupBox grpQuickGuide;
+        private Label lblQuickGuide;
 
         /// <summary>
         ///  Clean up any resources being used.
@@ -68,6 +74,7 @@
         private void InitializeComponent()
         {
             components = new System.ComponentModel.Container();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             lblApiStatus = new Label();
             lblTokenStatus = new Label();
             lblLoginStatus = new Label();
@@ -85,11 +92,15 @@
             txtLogs = new TextBox();
             txtApiPort = new TextBox();
             txtAllowedOrigins = new TextBox();
-            txtTokenDllPath = new TextBox();
+            txtTokenDllPath = new ComboBox();
             txtApiKey = new TextBox();
             btnSaveConfig = new Button();
             btnBrowseDll = new Button();
+            btnAutoDetectDll = new Button();
+            btnGenerateApiKey = new Button();
             btnOpenLogs = new Button();
+            chkOnlyLoadableDll = new CheckBox();
+            chkAllowLanClients = new CheckBox();
             txtTestPayload = new TextBox();
             btnSignTest = new Button();
             txtSignatureResult = new TextBox();
@@ -107,7 +118,10 @@
             lblApiKeyTitle = new Label();
             lblPayloadTitle = new Label();
             lblSignatureTitle = new Label();
+            grpQuickGuide = new GroupBox();
+            lblQuickGuide = new Label();
             trayMenuStrip.SuspendLayout();
+            grpQuickGuide.SuspendLayout();
             SuspendLayout();
             // 
             // lblApiStatus
@@ -115,16 +129,16 @@
             lblApiStatus.AutoSize = true;
             lblApiStatus.Location = new Point(20, 20);
             lblApiStatus.Name = "lblApiStatus";
-            lblApiStatus.Size = new Size(95, 15);
+            lblApiStatus.Size = new Size(105, 15);
             lblApiStatus.TabIndex = 0;
-            lblApiStatus.Text = "API: Initializing";
+            lblApiStatus.Text = "API: Đang khởi tạo";
             // 
             // lblTokenStatus
             // 
             lblTokenStatus.AutoSize = true;
             lblTokenStatus.Location = new Point(20, 45);
             lblTokenStatus.Name = "lblTokenStatus";
-            lblTokenStatus.Size = new Size(111, 15);
+            lblTokenStatus.Size = new Size(118, 15);
             lblTokenStatus.TabIndex = 1;
             lblTokenStatus.Text = "Token: Đang kiểm tra";
             // 
@@ -133,18 +147,18 @@
             lblLoginStatus.AutoSize = true;
             lblLoginStatus.Location = new Point(20, 70);
             lblLoginStatus.Name = "lblLoginStatus";
-            lblLoginStatus.Size = new Size(100, 15);
+            lblLoginStatus.Size = new Size(159, 15);
             lblLoginStatus.TabIndex = 2;
-            lblLoginStatus.Text = "Login: Chưa login";
+            lblLoginStatus.Text = "Đăng nhập: Chưa đăng nhập";
             // 
             // lblTokenInfo
             // 
             lblTokenInfo.AutoSize = true;
             lblTokenInfo.Location = new Point(20, 95);
             lblTokenInfo.Name = "lblTokenInfo";
-            lblTokenInfo.Size = new Size(119, 15);
+            lblTokenInfo.Size = new Size(129, 15);
             lblTokenInfo.TabIndex = 3;
-            lblTokenInfo.Text = "Label: N/A | Serial: N/A";
+            lblTokenInfo.Text = "Nhãn: N/A | Serial: N/A";
             // 
             // lvCertificates
             // 
@@ -161,22 +175,22 @@
             // 
             // colSubject
             // 
-            colSubject.Text = "Subject";
+            colSubject.Text = "Chủ thể";
             colSubject.Width = 240;
             // 
             // colSerial
             // 
-            colSerial.Text = "Serial";
+            colSerial.Text = "Số serial";
             colSerial.Width = 150;
             // 
             // colExpiry
             // 
-            colExpiry.Text = "Expiry";
+            colExpiry.Text = "Ngày hết hạn";
             colExpiry.Width = 120;
             // 
             // colCertId
             // 
-            colCertId.Text = "Cert Id";
+            colCertId.Text = "Mã chứng thư";
             colCertId.Width = 180;
             // 
             // txtPin
@@ -191,9 +205,9 @@
             // 
             btnLogin.Location = new Point(762, 203);
             btnLogin.Name = "btnLogin";
-            btnLogin.Size = new Size(98, 30);
+            btnLogin.Size = new Size(98, 46);
             btnLogin.TabIndex = 6;
-            btnLogin.Text = "Login Token";
+            btnLogin.Text = "Đăng nhập token";
             btnLogin.UseVisualStyleBackColor = true;
             btnLogin.Click += btnLogin_Click;
             // 
@@ -201,36 +215,36 @@
             // 
             btnRefresh.Location = new Point(866, 203);
             btnRefresh.Name = "btnRefresh";
-            btnRefresh.Size = new Size(100, 30);
+            btnRefresh.Size = new Size(100, 46);
             btnRefresh.TabIndex = 7;
-            btnRefresh.Text = "Refresh";
+            btnRefresh.Text = "Làm mới";
             btnRefresh.UseVisualStyleBackColor = true;
             btnRefresh.Click += btnRefresh_Click;
             // 
             // btnRestartApi
             // 
-            btnRestartApi.Location = new Point(762, 239);
+            btnRestartApi.Location = new Point(762, 255);
             btnRestartApi.Name = "btnRestartApi";
             btnRestartApi.Size = new Size(204, 30);
             btnRestartApi.TabIndex = 8;
-            btnRestartApi.Text = "Restart Local API";
+            btnRestartApi.Text = "Khởi động lại API";
             btnRestartApi.UseVisualStyleBackColor = true;
             btnRestartApi.Click += btnRestartApi_Click;
             // 
             // chkAutoStart
             // 
             chkAutoStart.AutoSize = true;
-            chkAutoStart.Location = new Point(762, 286);
+            chkAutoStart.Location = new Point(762, 292);
             chkAutoStart.Name = "chkAutoStart";
-            chkAutoStart.Size = new Size(127, 19);
+            chkAutoStart.Size = new Size(178, 19);
             chkAutoStart.TabIndex = 9;
-            chkAutoStart.Text = "Auto start Windows";
+            chkAutoStart.Text = "Tự khởi động cùng Windows";
             chkAutoStart.UseVisualStyleBackColor = true;
             chkAutoStart.CheckedChanged += chkAutoStart_CheckedChanged;
             // 
             // txtLogs
             // 
-            txtLogs.Location = new Point(20, 551);
+            txtLogs.Location = new Point(20, 557);
             txtLogs.Multiline = true;
             txtLogs.Name = "txtLogs";
             txtLogs.ReadOnly = true;
@@ -256,6 +270,7 @@
             // 
             // txtTokenDllPath
             // 
+            txtTokenDllPath.FormattingEnabled = true;
             txtTokenDllPath.Location = new Point(148, 478);
             txtTokenDllPath.Name = "txtTokenDllPath";
             txtTokenDllPath.Size = new Size(290, 23);
@@ -274,7 +289,7 @@
             btnSaveConfig.Name = "btnSaveConfig";
             btnSaveConfig.Size = new Size(118, 30);
             btnSaveConfig.TabIndex = 15;
-            btnSaveConfig.Text = "Save Config";
+            btnSaveConfig.Text = "Lưu cấu hình";
             btnSaveConfig.UseVisualStyleBackColor = true;
             btnSaveConfig.Click += btnSaveConfig_Click;
             // 
@@ -288,15 +303,58 @@
             btnBrowseDll.UseVisualStyleBackColor = true;
             btnBrowseDll.Click += btnBrowseDll_Click;
             // 
+            // btnAutoDetectDll
+            // 
+            btnAutoDetectDll.Location = new Point(503, 466);
+            btnAutoDetectDll.Name = "btnAutoDetectDll";
+            btnAutoDetectDll.Size = new Size(118, 38);
+            btnAutoDetectDll.TabIndex = 30;
+            btnAutoDetectDll.Text = "Tự động dò DLL";
+            btnAutoDetectDll.UseVisualStyleBackColor = true;
+            btnAutoDetectDll.Click += btnAutoDetectDll_Click;
+            // 
+            // btnGenerateApiKey
+            // 
+            btnGenerateApiKey.Location = new Point(503, 506);
+            btnGenerateApiKey.Name = "btnGenerateApiKey";
+            btnGenerateApiKey.Size = new Size(118, 25);
+            btnGenerateApiKey.TabIndex = 31;
+            btnGenerateApiKey.Text = "Tạo API key";
+            btnGenerateApiKey.UseVisualStyleBackColor = true;
+            btnGenerateApiKey.Click += btnGenerateApiKey_Click;
+            // 
             // btnOpenLogs
             // 
             btnOpenLogs.Location = new Point(503, 430);
             btnOpenLogs.Name = "btnOpenLogs";
             btnOpenLogs.Size = new Size(118, 30);
             btnOpenLogs.TabIndex = 17;
-            btnOpenLogs.Text = "Open Logs";
+            btnOpenLogs.Text = "Mở thư mục log";
             btnOpenLogs.UseVisualStyleBackColor = true;
             btnOpenLogs.Click += btnOpenLogs_Click;
+            // 
+            // chkOnlyLoadableDll
+            // 
+            chkOnlyLoadableDll.AutoSize = true;
+            chkOnlyLoadableDll.Checked = true;
+            chkOnlyLoadableDll.CheckState = CheckState.Checked;
+            chkOnlyLoadableDll.Location = new Point(148, 532);
+            chkOnlyLoadableDll.Name = "chkOnlyLoadableDll";
+            chkOnlyLoadableDll.Size = new Size(149, 19);
+            chkOnlyLoadableDll.TabIndex = 32;
+            chkOnlyLoadableDll.Text = "Chỉ hiện DLL load được";
+            chkOnlyLoadableDll.UseVisualStyleBackColor = true;
+            chkOnlyLoadableDll.CheckedChanged += chkOnlyLoadableDll_CheckedChanged;
+            // 
+            // chkAllowLanClients
+            // 
+            chkAllowLanClients.AutoSize = true;
+            chkAllowLanClients.Location = new Point(303, 532);
+            chkAllowLanClients.Name = "chkAllowLanClients";
+            chkAllowLanClients.Size = new Size(181, 19);
+            chkAllowLanClients.TabIndex = 34;
+            chkAllowLanClients.Text = "Cho phép máy nội bộ gọi API";
+            chkAllowLanClients.UseVisualStyleBackColor = true;
             // 
             // txtTestPayload
             // 
@@ -306,7 +364,7 @@
             txtTestPayload.ScrollBars = ScrollBars.Vertical;
             txtTestPayload.Size = new Size(315, 78);
             txtTestPayload.TabIndex = 18;
-            txtTestPayload.Text = "hello signing";
+            txtTestPayload.Text = "xin chào";
             // 
             // btnSignTest
             // 
@@ -314,7 +372,7 @@
             btnSignTest.Name = "btnSignTest";
             btnSignTest.Size = new Size(315, 30);
             btnSignTest.TabIndex = 19;
-            btnSignTest.Text = "Sign Test Payload";
+            btnSignTest.Text = "Ký thử dữ liệu";
             btnSignTest.UseVisualStyleBackColor = true;
             btnSignTest.Click += btnSignTest_Click;
             // 
@@ -338,27 +396,27 @@
             // 
             trayMenuStrip.Items.AddRange(new ToolStripItem[] { menuOpenDashboard, menuRestartService, menuExit });
             trayMenuStrip.Name = "trayMenuStrip";
-            trayMenuStrip.Size = new Size(172, 70);
+            trayMenuStrip.Size = new Size(187, 70);
             // 
             // menuOpenDashboard
             // 
             menuOpenDashboard.Name = "menuOpenDashboard";
-            menuOpenDashboard.Size = new Size(171, 22);
-            menuOpenDashboard.Text = "Open dashboard";
+            menuOpenDashboard.Size = new Size(186, 22);
+            menuOpenDashboard.Text = "Mở bảng điều khiển";
             menuOpenDashboard.Click += menuOpenDashboard_Click;
             // 
             // menuRestartService
             // 
             menuRestartService.Name = "menuRestartService";
-            menuRestartService.Size = new Size(171, 22);
-            menuRestartService.Text = "Restart service";
+            menuRestartService.Size = new Size(186, 22);
+            menuRestartService.Text = "Khởi động lại dịch vụ";
             menuRestartService.Click += menuRestartService_Click;
             // 
             // menuExit
             // 
             menuExit.Name = "menuExit";
-            menuExit.Size = new Size(171, 22);
-            menuExit.Text = "Exit";
+            menuExit.Size = new Size(186, 22);
+            menuExit.Text = "Thoát";
             menuExit.Click += menuExit_Click;
             // 
             // lblConfigTitle
@@ -367,9 +425,9 @@
             lblConfigTitle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblConfigTitle.Location = new Point(20, 336);
             lblConfigTitle.Name = "lblConfigTitle";
-            lblConfigTitle.Size = new Size(70, 15);
+            lblConfigTitle.Size = new Size(94, 15);
             lblConfigTitle.TabIndex = 21;
-            lblConfigTitle.Text = "Configuration";
+            lblConfigTitle.Text = "Cấu hình cơ bản";
             // 
             // lblCertTitle
             // 
@@ -377,9 +435,9 @@
             lblCertTitle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblCertTitle.Location = new Point(20, 129);
             lblCertTitle.Name = "lblCertTitle";
-            lblCertTitle.Size = new Size(118, 15);
+            lblCertTitle.Size = new Size(136, 15);
             lblCertTitle.TabIndex = 22;
-            lblCertTitle.Text = "Certificates in Token";
+            lblCertTitle.Text = "Chứng thư trong token";
             // 
             // lblPin
             // 
@@ -395,25 +453,25 @@
             lblApiPortTitle.AutoSize = true;
             lblApiPortTitle.Location = new Point(20, 368);
             lblApiPortTitle.Name = "lblApiPortTitle";
-            lblApiPortTitle.Size = new Size(52, 15);
+            lblApiPortTitle.Size = new Size(57, 15);
             lblApiPortTitle.TabIndex = 24;
-            lblApiPortTitle.Text = "API Port";
+            lblApiPortTitle.Text = "Cổng API";
             // 
             // lblOriginsTitle
             // 
             lblOriginsTitle.AutoSize = true;
             lblOriginsTitle.Location = new Point(20, 397);
             lblOriginsTitle.Name = "lblOriginsTitle";
-            lblOriginsTitle.Size = new Size(87, 15);
+            lblOriginsTitle.Size = new Size(103, 15);
             lblOriginsTitle.TabIndex = 25;
-            lblOriginsTitle.Text = "Allowed Origins";
+            lblOriginsTitle.Text = "Địa chỉ được phép";
             // 
             // lblTokenDllTitle
             // 
             lblTokenDllTitle.AutoSize = true;
             lblTokenDllTitle.Location = new Point(20, 481);
             lblTokenDllTitle.Name = "lblTokenDllTitle";
-            lblTokenDllTitle.Size = new Size(87, 15);
+            lblTokenDllTitle.Size = new Size(76, 15);
             lblTokenDllTitle.TabIndex = 26;
             lblTokenDllTitle.Text = "PKCS#11 DLL";
             // 
@@ -422,9 +480,9 @@
             lblApiKeyTitle.AutoSize = true;
             lblApiKeyTitle.Location = new Point(20, 510);
             lblApiKeyTitle.Name = "lblApiKeyTitle";
-            lblApiKeyTitle.Size = new Size(47, 15);
+            lblApiKeyTitle.Size = new Size(46, 15);
             lblApiKeyTitle.TabIndex = 27;
-            lblApiKeyTitle.Text = "API Key";
+            lblApiKeyTitle.Text = "API key";
             // 
             // lblPayloadTitle
             // 
@@ -432,24 +490,48 @@
             lblPayloadTitle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblPayloadTitle.Location = new Point(651, 371);
             lblPayloadTitle.Name = "lblPayloadTitle";
-            lblPayloadTitle.Size = new Size(75, 15);
+            lblPayloadTitle.Size = new Size(91, 15);
             lblPayloadTitle.TabIndex = 28;
-            lblPayloadTitle.Text = "Quick Sign UI";
+            lblPayloadTitle.Text = "Ký nhanh (test)";
             // 
             // lblSignatureTitle
             // 
             lblSignatureTitle.AutoSize = true;
             lblSignatureTitle.Location = new Point(651, 510);
             lblSignatureTitle.Name = "lblSignatureTitle";
-            lblSignatureTitle.Size = new Size(95, 15);
+            lblSignatureTitle.Size = new Size(91, 15);
             lblSignatureTitle.TabIndex = 29;
-            lblSignatureTitle.Text = "Signature Base64";
+            lblSignatureTitle.Text = "Chữ ký (Base64)";
+            // 
+            // grpQuickGuide
+            // 
+            grpQuickGuide.Controls.Add(lblQuickGuide);
+            grpQuickGuide.Location = new Point(773, 12);
+            grpQuickGuide.Name = "grpQuickGuide";
+            grpQuickGuide.Size = new Size(204, 84);
+            grpQuickGuide.TabIndex = 33;
+            grpQuickGuide.TabStop = false;
+            grpQuickGuide.Text = "Hướng dẫn nhanh";
+            // 
+            // lblQuickGuide
+            // 
+            lblQuickGuide.Dock = DockStyle.Fill;
+            lblQuickGuide.Location = new Point(3, 19);
+            lblQuickGuide.Name = "lblQuickGuide";
+            lblQuickGuide.Size = new Size(198, 62);
+            lblQuickGuide.TabIndex = 0;
+            lblQuickGuide.Text = "1) Tự động dò/chọn DLL\r\n2) Lưu cấu hình\r\n3) Nhập PIN và đăng nhập\r\n4) Làm mới + ký thử";
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(989, 726);
+            Controls.Add(chkAllowLanClients);
+            Controls.Add(grpQuickGuide);
+            Controls.Add(chkOnlyLoadableDll);
+            Controls.Add(btnGenerateApiKey);
+            Controls.Add(btnAutoDetectDll);
             Controls.Add(lblSignatureTitle);
             Controls.Add(lblPayloadTitle);
             Controls.Add(lblApiKeyTitle);
@@ -480,11 +562,13 @@
             Controls.Add(lblLoginStatus);
             Controls.Add(lblTokenStatus);
             Controls.Add(lblApiStatus);
+            Icon = (Icon)resources.GetObject("$this.Icon");
             MinimumSize = new Size(1005, 765);
             Name = "Form1";
             StartPosition = FormStartPosition.CenterScreen;
-            Text = "sohoa-sign-pdf | Local signer dashboard";
+            Text = "sohoa-sign-pdf | Công cụ ký số cục bộ";
             trayMenuStrip.ResumeLayout(false);
+            grpQuickGuide.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }

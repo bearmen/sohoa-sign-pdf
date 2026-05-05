@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace sohoa_sign_pdf.Configuration;
@@ -12,6 +12,7 @@ public sealed class AppConfig
     public string[] AllowedOrigins { get; set; } = ["http://localhost:3000", "https://localhost:3000"];
     public string TokenLibraryPath { get; set; } = string.Empty;
     public bool AutoStart { get; set; }
+    public bool AllowLanClients { get; set; }
     public int SessionTimeoutMinutes { get; set; } = 15;
     public int RateLimitPerMinute { get; set; } = 30;
     public string LogLevel { get; set; } = "Info";
