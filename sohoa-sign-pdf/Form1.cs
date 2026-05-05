@@ -47,6 +47,7 @@ namespace sohoa_sign_pdf
             notifyIcon1.Icon = _trayCustomIcon ?? SystemIcons.Application;
             notifyIcon1.Visible = true;
             chkAutoStart.Checked = _autoStartService.IsEnabled();
+            chkAllowLanClients.Checked = _configurationService.Current.AllowLanClients;
             txtApiPort.Text = _configurationService.Current.ApiPort.ToString();
             txtAllowedOrigins.Text = string.Join(Environment.NewLine, _configurationService.Current.AllowedOrigins);
             txtTokenDllPath.Text = _configurationService.Current.TokenLibraryPath;
@@ -109,7 +110,8 @@ namespace sohoa_sign_pdf
             try
             {
                 await _localApiServer.StartAsync();
-                lblApiStatus.Text = $"API: Đang chạy tại 127.0.0.1:{_configurationService.Current.ApiPort}";
+                var host = _configurationService.Current.AllowLanClients ? "0.0.0.0" : "127.0.0.1";
+                lblApiStatus.Text = $"API: Đang chạy tại {host}:{_configurationService.Current.ApiPort}";
             }
             catch (Exception ex)
             {
@@ -272,7 +274,8 @@ namespace sohoa_sign_pdf
                 || config.ApiPort != typedPort
                 || !string.Equals(config.ApiKey, txtApiKey.Text.Trim(), StringComparison.Ordinal)
                 || !config.AllowedOrigins.SequenceEqual(typedOrigins, StringComparer.OrdinalIgnoreCase)
-                || config.AutoStart != chkAutoStart.Checked;
+                || config.AutoStart != chkAutoStart.Checked
+                || config.AllowLanClients != chkAllowLanClients.Checked;
         }
 
         private void ApplyButtonHighlight(Button? target)
@@ -404,6 +407,7 @@ namespace sohoa_sign_pdf
 
         private async void btnRestartApi_Click(object sender, EventArgs e)
         {
+            ApplyApiSettingsFromUi();
             await _localApiServer.StopAsync();
             await StartApiIfNeededAsync();
             UpdateNextActionHighlight();
@@ -439,6 +443,7 @@ namespace sohoa_sign_pdf
 
         private async void menuRestartService_Click(object sender, EventArgs e)
         {
+            ApplyApiSettingsFromUi();
             await _localApiServer.StopAsync();
             await StartApiIfNeededAsync();
             UpdateNextActionHighlight();
@@ -562,17 +567,23 @@ namespace sohoa_sign_pdf
                 return;
             }
 
+            ApplyApiSettingsFromUi();
+            _logger.Info("Đã lưu cấu hình. Hãy khởi động lại API nếu bạn đổi cổng hoặc đổi chế độ LAN.");
+            UpdateNextActionHighlight();
+        }
+
+        private void ApplyApiSettingsFromUi()
+        {
             var config = _configurationService.Current;
-            config.ApiPort = port;
+            config.ApiPort = int.TryParse(txtApiPort.Text.Trim(), out var port) ? port : config.ApiPort;
             config.ApiKey = txtApiKey.Text.Trim();
             config.TokenLibraryPath = txtTokenDllPath.Text.Trim();
             config.AutoStart = chkAutoStart.Checked;
+            config.AllowLanClients = chkAllowLanClients.Checked;
             config.AllowedOrigins = txtAllowedOrigins.Text
                 .Split([Environment.NewLine], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
             _configurationService.Save(config);
-            _logger.Info("Đã lưu cấu hình. Hãy khởi động lại API nếu bạn đổi cổng.");
-            UpdateNextActionHighlight();
         }
 
         private void btnOpenLogs_Click(object sender, EventArgs e)

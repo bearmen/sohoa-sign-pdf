@@ -353,6 +353,9 @@ public sealed class TokenService : IDisposable
                 Issuer = cert.Issuer,
                 SerialNumber = cert.SerialNumber,
                 Thumbprint = cert.Thumbprint,
+                CommonName = GetCommonName(cert),
+                Organization = GetSubjectAttribute(cert, "O"),
+                Email = GetEmail(cert),
                 NotBefore = cert.NotBefore,
                 NotAfter = cert.NotAfter,
                 RawData = raw
@@ -578,5 +581,54 @@ public sealed class TokenService : IDisposable
         catch
         {
         }
+    }
+
+    private static string? GetCommonName(X509Certificate2 cert)
+    {
+        var commonName = cert.GetNameInfo(X509NameType.SimpleName, false);
+        return string.IsNullOrWhiteSpace(commonName)
+            ? GetSubjectAttribute(cert, "CN")
+            : commonName;
+    }
+
+    private static string? GetEmail(X509Certificate2 cert)
+    {
+        var email = cert.GetNameInfo(X509NameType.EmailName, false);
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            return email;
+        }
+
+        return GetSubjectAttribute(cert, "E", "EMAILADDRESS");
+    }
+
+    private static string? GetSubjectAttribute(X509Certificate2 cert, params string[] keys)
+    {
+        var subject = cert.SubjectName.Name;
+        if (string.IsNullOrWhiteSpace(subject) || keys.Length == 0)
+        {
+            return null;
+        }
+
+        var parts = subject.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        foreach (var part in parts)
+        {
+            var index = part.IndexOf('=');
+            if (index <= 0 || index == part.Length - 1)
+            {
+                continue;
+            }
+
+            var key = part[..index].Trim();
+            if (!keys.Any(x => key.Equals(x, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            var value = part[(index + 1)..].Trim();
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+
+        return null;
     }
 }

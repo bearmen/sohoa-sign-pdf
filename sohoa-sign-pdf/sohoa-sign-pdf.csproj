@@ -7,12 +7,17 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>Images\app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Remove="NewFolder1\**" />
     <EmbeddedResource Remove="NewFolder1\**" />
     <None Remove="NewFolder1\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Images\app.ico" />
   </ItemGroup>
 
   <ItemGroup>

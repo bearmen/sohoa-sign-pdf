@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Sockets;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -44,7 +45,8 @@ public sealed class LocalApiServer : IAsyncDisposable
             EnvironmentName = "Production"
         });
 
-        builder.WebHost.UseUrls($"http://127.0.0.1:{config.ApiPort}");
+        var listenHost = config.AllowLanClients ? "0.0.0.0" : "127.0.0.1";
+        builder.WebHost.UseUrls($"http://{listenHost}:{config.ApiPort}");
         builder.Services.ConfigureHttpJsonOptions(options =>
         {
             options.SerializerOptions.WriteIndented = true;
@@ -54,14 +56,15 @@ public sealed class LocalApiServer : IAsyncDisposable
 
         app.Use(async (context, next) =>
         {
-            if (!IPAddress.IsLoopback(context.Connection.RemoteIpAddress ?? IPAddress.None))
+            var remoteIp = context.Connection.RemoteIpAddress ?? IPAddress.None;
+            if (!IsClientAllowed(remoteIp, config.AllowLanClients))
             {
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await context.Response.WriteAsJsonAsync(new { error = "Chỉ cho phép gửi từ localhost." }, cancellationToken);
+                await context.Response.WriteAsJsonAsync(new { error = "Không được phép truy cập API từ địa chỉ hiện tại." }, cancellationToken);
                 return;
             }
 
-            if (context.Request.Path.StartsWithSegments("/health"))
+            if (context.Request.Path == "/" || context.Request.Path.StartsWithSegments("/health"))
             {
                 await next();
                 return;
@@ -91,6 +94,14 @@ public sealed class LocalApiServer : IAsyncDisposable
             await next();
         });
 
+        app.MapGet("/", () => Results.Ok(new
+        {
+            status = "ok",
+            message = "Local API is running",
+            apiPort = config.ApiPort,
+            version = Application.ProductVersion
+        }));
+
         app.MapGet("/health", () => Results.Ok(new
         {
             status = "ok",
@@ -112,6 +123,9 @@ public sealed class LocalApiServer : IAsyncDisposable
                 x.Id,
                 x.Label,
                 x.Subject,
+                x.CommonName,
+                x.Organization,
+                x.Email,
                 x.SerialNumber,
                 x.Thumbprint,
                 x.NotBefore,
@@ -203,7 +217,8 @@ public sealed class LocalApiServer : IAsyncDisposable
 
         await app.StartAsync(cancellationToken);
         _app = app;
-        _logger.Info($"Local API đã chạy tại http://127.0.0.1:{config.ApiPort}");
+        _logger.Info($"Local API config: AllowLanClients={config.AllowLanClients}, Port={config.ApiPort}, ConfigPath={_configurationService.ConfigPath}");
+        _logger.Info($"Local API đã chạy tại http://{listenHost}:{config.ApiPort}" + (config.AllowLanClients ? " (cho phép LAN)." : " (chỉ localhost)."));
     }
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
@@ -270,5 +285,38 @@ public sealed class LocalApiServer : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await StopAsync();
+    }
+
+    private static bool IsClientAllowed(IPAddress remoteIp, bool allowLanClients)
+    {
+        if (IPAddress.IsLoopback(remoteIp))
+        {
+            return true;
+        }
+
+        if (!allowLanClients)
+        {
+            return false;
+        }
+
+        if (remoteIp.IsIPv4MappedToIPv6)
+        {
+            remoteIp = remoteIp.MapToIPv4();
+        }
+
+        if (remoteIp.AddressFamily == AddressFamily.InterNetwork)
+        {
+            var bytes = remoteIp.GetAddressBytes();
+            return bytes[0] == 10
+                || (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31)
+                || (bytes[0] == 192 && bytes[1] == 168);
+        }
+
+        if (remoteIp.AddressFamily == AddressFamily.InterNetworkV6)
+        {
+            return remoteIp.IsIPv6LinkLocal || remoteIp.IsIPv6SiteLocal || remoteIp.IsIPv6UniqueLocal;
+        }
+
+        return false;
     }
 }

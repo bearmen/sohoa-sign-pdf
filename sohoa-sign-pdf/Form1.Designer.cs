@@ -31,6 +31,7 @@
         private Button btnGenerateApiKey;
         private Button btnOpenLogs;
         private CheckBox chkOnlyLoadableDll;
+        private CheckBox chkAllowLanClients;
         private TextBox txtTestPayload;
         private Button btnSignTest;
         private TextBox txtSignatureResult;
@@ -99,6 +100,7 @@
             btnGenerateApiKey = new Button();
             btnOpenLogs = new Button();
             chkOnlyLoadableDll = new CheckBox();
+            chkAllowLanClients = new CheckBox();
             txtTestPayload = new TextBox();
             btnSignTest = new Button();
             txtSignatureResult = new TextBox();
@@ -344,6 +346,16 @@
             chkOnlyLoadableDll.UseVisualStyleBackColor = true;
             chkOnlyLoadableDll.CheckedChanged += chkOnlyLoadableDll_CheckedChanged;
             // 
+            // chkAllowLanClients
+            // 
+            chkAllowLanClients.AutoSize = true;
+            chkAllowLanClients.Location = new Point(303, 532);
+            chkAllowLanClients.Name = "chkAllowLanClients";
+            chkAllowLanClients.Size = new Size(181, 19);
+            chkAllowLanClients.TabIndex = 34;
+            chkAllowLanClients.Text = "Cho phép máy nội bộ gọi API";
+            chkAllowLanClients.UseVisualStyleBackColor = true;
+            // 
             // txtTestPayload
             // 
             txtTestPayload.Location = new Point(651, 394);
@@ -515,6 +527,7 @@
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(989, 726);
+            Controls.Add(chkAllowLanClients);
             Controls.Add(grpQuickGuide);
             Controls.Add(chkOnlyLoadableDll);
             Controls.Add(btnGenerateApiKey);
